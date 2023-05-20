@@ -65,7 +65,7 @@ class Algoritmos:
 
             # Función de vecindario
             def vecindario(solucion):
-                vecino = solucion[:]#revisar strip de cadenas [:] significa rango desde el principio al final
+                vecino = solucion.copy()
                 i = random.randint(0, len(solucion)-1)
                 vecino[i] = 1 - vecino[i]
                 return vecino
@@ -102,93 +102,110 @@ class Algoritmos:
 
 
     class AntCol:
-            def ejecutaAntCol(self, num_hormigas, alpha, beta, evaporacion_feromonas, max_iter, grafo):
-                self.num_hormigas = num_hormigas
-                self.alpha = alpha
-                self.beta = beta
-                self.evaporacion_feromonas = evaporacion_feromonas
-                self.max_iter = max_iter
-                self.grafo = grafo
-                
-                self.matriz_feromonas = np.ones_like(self.grafo) / len(self.grafo)
-                self.matriz_distancias = 1 / self.grafo
-                
-            def ejecutar(self):
-                mejor_camino = None
-                mejor_distancia = float('inf')
-                
-                for i in range(self.max_iter):
-                    caminos_hormigas = self.generar_caminos_hormigas()
-                    distancias = [self.calcular_distancia(camino) for camino in caminos_hormigas]
-                    
-                    if min(distancias) < mejor_distancia:
-                        mejor_distancia = min(distancias)
-                        mejor_camino = caminos_hormigas[np.argmin(distancias)]
-                    
-                    cambios_feromonas = self.calcular_cambios_feromonas(caminos_hormigas, distancias)
-                    self.actualizar_matriz_feromonas(cambios_feromonas)
-                    
-                return mejor_camino, mejor_distancia
-            
-            def generar_caminos_hormigas(self):
-                caminos_hormigas = []
-                
-                for i in range(self.num_hormigas):
-                    camino_hormiga = self.generar_camino_hormiga()
-                    caminos_hormigas.append(camino_hormiga)
-                    
-                return caminos_hormigas
-            
-            def generar_camino_hormiga(self):
-                nodo_inicial = np.random.randint(len(self.grafo))
-                camino = [nodo_inicial]
-                
-                for i in range(len(self.grafo) - 1):
-                    nodo_actual = camino[-1]
-                    prob_transicion = self.calcular_prob_transicion(nodo_actual, camino)
-                    nodo_siguiente = np.random.choice(range(len(self.grafo)), p=prob_transicion)
-                    camino.append(nodo_siguiente)
-                    
-                return camino
-            
-            def calcular_prob_transicion(self, nodo_actual, camino):
-                numerador = np.zeros(len(self.grafo))
-                denominador = 0
-                
-                for nodo in range(len(self.grafo)):
-                    if nodo not in camino:
-                        feromona = self.matriz_feromonas[nodo_actual, nodo] ** self.alpha
-                        distancia = self.matriz_distancias[nodo_actual, nodo] ** (-self.beta)
-                        feromona_por_distancia = feromona * distancia
+                def __init__(self, num_hormigas, alpha, beta, evaporacion_feromonas, max_iter, grafo):
+                    self.num_hormigas = num_hormigas
+                    self.alpha = alpha
+                    self.beta = beta
+                    self.evaporacion_feromonas = evaporacion_feromonas
+                    self.max_iter = max_iter
+                    self.grafo = grafo
+                    self.matriz_feromonas = None
+                    self.matriz_distancias = None
 
-                        numerador[nodo] = feromona_por_distancia
-                        denominador += feromona_por_distancia
-                    
-                return numerador / denominador
-            
-            def calcular_distancia(self, camino):
-                distancia_total = 0
-                
-                for i in range(len(camino) - 1):
-                    distancia_total += self.matriz_distancias[camino[i], camino[i+1]]
-                    
-                distancia_total += self.matriz_distancias[camino[-1], camino[0]]
-                
-                return distancia_total
-            
-            def calcular_cambios_feromonas(self, caminos_hormigas, distancias):
-                cambios_feromonas = np.zeros_like(self.matriz_feromonas)
-        
-                for camino_hormiga, distancia in zip(caminos_hormigas, distancias):
-                    for i in range(len(camino_hormiga) - 1):
-                        nodo_actual = camino_hormiga[i]
-                        nodo_siguiente = camino_hormiga[i+1]
-                        cambios_feromonas[nodo_actual, nodo_siguiente] += 1 / distancia
-                        
-                        return cambios_feromonas
-    
-            def actualizar_matriz_feromonas(self, cambios_feromonas):
-                self.matriz_feromonas = (1 - self.evaporacion_feromonas) * self.matriz_feromonas + cambios_feromonas
+                def ejecutaAntCol(self):
+                    self.matriz_feromonas = np.empty((len(self.grafo), len(self.grafo)))
+                    self.matriz_distancias = self.crear_matriz_distancias()
+
+                    self.matriz_feromonas.fill(1 / len(self.grafo))
+
+                    mejor_camino = None
+                    mejor_distancia = float('inf')
+
+                    for i in range(self.max_iter):
+                        caminos_hormigas = self.generar_caminos_hormigas()
+                        distancias = [self.calcular_distancia(camino) for camino in caminos_hormigas]
+
+                        if min(distancias) < mejor_distancia:
+                            mejor_distancia = min(distancias)
+                            mejor_camino = caminos_hormigas[np.argmin(distancias)]
+
+                        cambios_feromonas = self.calcular_cambios_feromonas(caminos_hormigas, distancias)
+                        self.actualizar_matriz_feromonas(cambios_feromonas)
+
+                    return mejor_camino, mejor_distancia
+
+                def crear_matriz_distancias(self):
+                    nodos = list(self.grafo.keys())
+                    matriz_distancias = np.zeros((len(nodos), len(nodos)))
+
+                    for i, nodo_origen in enumerate(nodos):
+                        for j, nodo_destino in enumerate(nodos):
+                            if nodo_destino in self.grafo[nodo_origen]:
+                                matriz_distancias[i, j] = self.grafo[nodo_origen][nodo_destino]
+                            else:
+                                matriz_distancias[i, j] = float('inf')
+
+                    return matriz_distancias
+
+                def generar_caminos_hormigas(self):
+                    caminos_hormigas = []
+
+                    for i in range(self.num_hormigas):
+                        camino_hormiga = self.generar_camino_hormiga()
+                        caminos_hormigas.append(camino_hormiga)
+
+                    return caminos_hormigas
+
+                def generar_camino_hormiga(self):
+                    nodo_inicial = np.random.randint(len(self.grafo))
+                    camino = [nodo_inicial]
+
+                    for i in range(len(self.grafo) - 1):
+                        nodo_actual = camino[-1]
+                        prob_transicion = self.calcular_prob_transicion(nodo_actual, camino)
+                        nodo_siguiente = np.random.choice(range(len(self.grafo)), p=prob_transicion)
+                        camino.append(nodo_siguiente)
+
+                    return camino
+
+                def calcular_prob_transicion(self, nodo_actual, camino):
+                    numerador = np.zeros(len(self.grafo))
+                    denominador = 0
+
+                    for nodo in range(len(self.grafo)):
+                        if nodo not in camino:
+                            feromona = self.matriz_feromonas[nodo_actual, nodo] ** self.alpha
+                            distancia = self.matriz_distancias[nodo_actual, nodo] ** (-self.beta)
+                            feromona_por_distancia = feromona * distancia
+
+                            numerador[nodo] = feromona_por_distancia
+                            denominador += feromona_por_distancia
+
+                    return numerador / denominador
+
+                def calcular_distancia(self, camino):
+                    distancia_total = 0
+
+                    for i in range(len(camino) - 1):
+                        distancia_total += self.matriz_distancias[camino[i], camino[i+1]]
+
+                    distancia_total += self.matriz_distancias[camino[-1], camino[0]]
+
+                    return distancia_total
+
+                def calcular_cambios_feromonas(self, caminos_hormigas, distancias):
+                    cambios_feromonas = np.zeros_like(self.matriz_feromonas)
+
+                    for camino_hormiga, distancia in zip(caminos_hormigas, distancias):
+                        for i in range(len(camino_hormiga) - 1):
+                            nodo_actual = camino_hormiga[i]
+                            nodo_siguiente = camino_hormiga[i+1]
+                            cambios_feromonas[nodo_actual, nodo_siguiente] += 1 / distancia
+
+                    return cambios_feromonas
+
+                def actualizar_matriz_feromonas(self, cambios_feromonas):
+                    self.matriz_feromonas = (1 - self.evaporacion_feromonas) * self.matriz_feromonas + cambios_feromonas
                 
 
     class pso:
@@ -353,5 +370,49 @@ class Algoritmos:
                 print("Iteración {0}: precisión en datos de prueba {1}".format(i, precision))
 
             return pesos, bias
+        
 
+    class NeuralNetwork2:
+            def __init__(self, input_size, hidden_size, output_size):
+                # Inicialización de los pesos de las capas ocultas y de salida
+                self.W1 = np.random.randn(input_size, hidden_size)
+                self.b1 = np.zeros(hidden_size)
+                self.W2 = np.random.randn(hidden_size, output_size)
+                self.b2 = np.zeros(output_size)
+            
+            def forward(self, X):
+                # Propagación hacia adelante
+                self.z1 = np.dot(X, self.W1) + self.b1
+                self.a1 = relu(self.z1)
+                self.z2 = np.dot(self.a1, self.W2) + self.b2
+                self.y_hat = relu(self.z2)
+                return self.y_hat
+            
+            def train(self, X, y, learning_rate, epochs):
+                for epoch in range(epochs):
+                    # Propagación hacia adelante
+                    y_hat = self.forward(X)
+                    
+                    # Cálculo del error
+                    error = y - y_hat
+                    
+                    # Cálculo de las derivadas de los pesos
+                    delta2 = error * np.where(self.z2 > 0, 1, 0)
+                    dW2 = np.dot(self.a1.T, delta2)
+                    db2 = np.sum(delta2, axis=0)
+                    
+                    delta1 = np.dot(delta2, self.W2.T) * np.where(self.z1 > 0, 1, 0)
+                    dW1 = np.dot(X.T, delta1)
+                    db1 = np.sum(delta1, axis=0)
+                    
+                    # Actualización de los pesos
+                    self.W2 += learning_rate * dW2
+                    self.b2 += learning_rate * db2
+                    self.W1 += learning_rate * dW1
+                    self.b1 += learning_rate * db1
+def relu(x):
+    return np.maximum(0, x)
+
+
+                
         

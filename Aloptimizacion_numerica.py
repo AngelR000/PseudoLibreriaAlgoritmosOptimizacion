@@ -59,8 +59,10 @@ class AlgON:
                 s = x_new - x
                 y = grad_f(x_new) - grad_f(x)
 
-                # Actualizamos la matriz H utilizando la fórmula de BFGS
+                # Calculamos rho para evitar la división entre cero
                 rho = 1 / np.dot(y, s)
+
+                # Actualizamos la matriz H utilizando la fórmula de BFGS
                 H = (np.eye(len(x0)) - rho * np.outer(s, y)) @ H @ (np.eye(len(x0)) - rho * np.outer(y, s)) + rho * np.outer(s, s)
 
                 # Actualizamos la aproximación y la iteración
